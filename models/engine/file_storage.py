@@ -1,80 +1,77 @@
 #!/usr/bin/python3
-"""This is the file storage class for AirBnB"""
+"""
+Handles I/O, writing and reading, of JSON for storage of all class instances
+"""
 import json
-from models.base_model import BaseModel
-from models.user import User
-from models.state import State
-from models.city import City
-from models.amenity import Amenity
-from models.place import Place
-from models.review import Review
-import shlex
+from models import base_model, amenity, city, place, review, state, user
+from datetime import datetime
+
+strptime = datetime.strptime
+to_json = base_model.BaseModel.to_json
 
 
 class FileStorage:
-    """This class serializes instances to a JSON file and
-    deserializes JSON file to instances
-    Attributes:
-        __file_path: path to the JSON file
-        __objects: objects will be stored
+    """handles long term storage of all class instances"""
+    CNC = {
+        'BaseModel': base_model.BaseModel,
+        'Amenity': amenity.Amenity,
+        'City': city.City,
+        'Place': place.Place,
+        'Review': review.Review,
+        'State': state.State,
+        'User': user.User
+    }
+    """CNC - this variable is a dictionary with:
+    keys: Class Names
+    values: Class type (used for instantiation)
     """
-    __file_path = "file.json"
+    __file_path = './dev/file.json'
     __objects = {}
 
     def all(self, cls=None):
-        """returns a dictionary
-        Return:
-            returns a dictionary of __object
-        """
-        dic = {}
-        if cls:
-            dictionary = self.__objects
-            for key in dictionary:
-                partition = key.replace('.', ' ')
-                partition = shlex.split(partition)
-                if (partition[0] == cls.__name__):
-                    dic[key] = self.__objects[key]
-            return (dic)
+        """returns private attribute: __objects"""
+        if cls is None:
+            return FileStorage.__objects
         else:
-            return self.__objects
+            new_obj = {}
+            for c, v in FileStorage.__objects.items():
+                b = c.split('.')
+                if b[0] == cls:
+                    new_obj[c] = v
+            return new_obj
 
     def new(self, obj):
-        """sets __object to given obj
-        Args:
-            obj: given object
-        """
-        if obj:
-            key = "{}.{}".format(type(obj).__name__, obj.id)
-            self.__objects[key] = obj
+        """sets / updates in __objects the obj with key <obj class name>.id"""
+        bm_id = "{}.{}".format(type(obj).__name__, obj.id)
+        FileStorage.__objects[bm_id] = obj
 
     def save(self):
-        """serialize the file path to JSON file path
-        """
-        my_dict = {}
-        for key, value in self.__objects.items():
-            my_dict[key] = value.to_dict()
-        with open(self.__file_path, 'w', encoding="UTF-8") as f:
-            json.dump(my_dict, f)
+        """serializes __objects to the JSON file (path: __file_path)"""
+        fname = FileStorage.__file_path
+        d = {}
+        for bm_id, bm_obj in FileStorage.__objects.items():
+            d[bm_id] = bm_obj.to_json()
+        with open(fname, mode='w', encoding='utf-8') as f_io:
+            json.dump(d, f_io)
 
     def reload(self):
-        """serialize the file path to JSON file path
-        """
+        """if file exists, deserializes JSON file to __objects, else nothing"""
+        fname = FileStorage.__file_path
+        FileStorage.__objects = {}
         try:
-            with open(self.__file_path, 'r', encoding="UTF-8") as f:
-                for key, value in (json.load(f)).items():
-                    value = eval(value["__class__"])(**value)
-                    self.__objects[key] = value
-        except FileNotFoundError:
-            pass
+            with open(fname, mode='r', encoding='utf-8') as f_io:
+                new_objs = json.load(f_io)
+        except:
+            return
+        for o_id, d in new_objs.items():
+            k_cls = d['__class__']
+            FileStorage.__objects[o_id] = FileStorage.CNC[k_cls](**d)
 
     def delete(self, obj=None):
-        """ delete an existing element
-        """
-        if obj:
-            key = "{}.{}".format(type(obj).__name__, obj.id)
-            del self.__objects[key]
+        """ to delete obj from __objects if inside """
+        if obj in self.__objects:
+            del(obj)
 
     def close(self):
-        """ calls reload()
-        """
+        """ calls reload method and closes session"""
         self.reload()
