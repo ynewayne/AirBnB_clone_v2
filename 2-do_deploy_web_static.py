@@ -1,50 +1,30 @@
 #!/usr/bin/python3
 """
-Fabric script (based on the file 1-pack_web_static.py) that
-       distributes an archive to your web servers
-Returns False if the file at the path archive_path doesn't exist
+Fabric script based on the file 1-pack_web_static.py that distributes an
+archive to the web servers
 """
-import os.path
-from fabric.api import *
-from fabric.operations import run, put, sudo
-env.hosts = ['66.70.184.210', '142.44.164.128']
+
+from fabric.api import put, run, env
+from os.path import exists
+env.hosts = ['54.87.238.132', '54.90.17.147']
 
 
 def do_deploy(archive_path):
-    """ script that distributes archive to web servers
-    All remote commands must be executed on your both web servers
-    (using env.hosts = ['<IP web-01>', 'IP web-02'] variable in your script)
-    Returns True if all operations has been done correctly,
-            otherwise returns False
-    """
-    if (os.path.isfile(archive_path) is False):
+    """distributes an archive to the web servers"""
+    if exists(archive_path) is False:
         return False
-
     try:
-        """Upload the archive to the /tmp/ directory of the web server"""
-        put(archive_path, "/tmp/")
-        unpack = archive_path.split("/")[-1]
-        folder = ("/data/web_static/releases/" + unpack.split(".")[0])
-        run("sudo mkdir -p {:s}".format(folder))
-
-        """Uncompress the archive to the folder
-        /data/web_static/releases/<archive filename without extension>
-        on the web server"""
-        run("sudo tar -xzf /tmp/{:s} -C {:s}".format(unpack, folder))
-
-        """Delete the archive from the web server"""
-        run("sudo rm /tmp/{:s}".format(unpack))
-        run("sudo mv {:s}/web_static/* {:s}/".format(folder, folder))
-        run("sudo rm -rf {:s}/web_static".format(folder))
-
-        """Delete the symbolic link /data/web_static/current"""
-        run('sudo rm -rf /data/web_static/current')
-
-        """Create a new the symbolic link
-           /data/web_static/current on the web server, linked to the new
-           version of your code
-           (/data/web_static/releases/<archive filename without extension>)"""
-        run("sudo ln -s {:s} /data/web_static/current".format(folder))
+        file_n = archive_path.split("/")[-1]
+        no_ext = file_n.split(".")[0]
+        path = "/data/web_static/releases/"
+        put(archive_path, '/tmp/')
+        run('mkdir -p {}{}/'.format(path, no_ext))
+        run('tar -xzf /tmp/{} -C {}{}/'.format(file_n, path, no_ext))
+        run('rm /tmp/{}'.format(file_n))
+        run('mv {0}{1}/web_static/* {0}{1}/'.format(path, no_ext))
+        run('rm -rf {}{}/web_static'.format(path, no_ext))
+        run('rm -rf /data/web_static/current')
+        run('ln -s {}{}/ /data/web_static/current'.format(path, no_ext))
         return True
     except:
         return False
